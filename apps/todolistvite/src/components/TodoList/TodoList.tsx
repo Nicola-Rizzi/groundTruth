@@ -1,0 +1,39 @@
+import type { Todo } from "../../types";
+import TodoListItem from "../TodoListItem/TodoListItem";
+
+interface TodoListProps {
+  todos: Todo[];
+  isLoading: boolean;
+  error: string | null;
+  removeTodoListItem: (e: number) => void;
+  markTodoListItem: (e: number) => void;
+  addTodo?: (title: string) => void;
+}
+
+const TodoList = ({
+  todos,
+  isLoading,
+  error,
+  removeTodoListItem,
+  markTodoListItem,
+  addTodo,
+}: TodoListProps) => {
+  if (isLoading) return <p>is loading......</p>;
+  if (error) return <p>{error}</p>;
+
+  return (
+    <ul>
+      {todos.map((todo) => (
+        <TodoListItem
+          key={todo.id}
+          todoItem={todo}
+          removeTodoListItem={removeTodoListItem}
+          markTodoListItem={markTodoListItem}
+          addTodo={addTodo}
+        />
+      ))}
+    </ul>
+  );
+};
+
+export default TodoList;

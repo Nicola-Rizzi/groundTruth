@@ -1,0 +1,12 @@
+.listItem {
+  display: flex;
+  flex-direction: column;
+  padding: 3px;
+  width: stretch;
+}
+
+.listItemContainer {
+  display: flex;
+  flex-direction: row;
+  margin: 5px;
+}

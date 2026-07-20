@@ -1,0 +1,64 @@
+[
+  {
+    "method": "GET",
+    "path": "/todos",
+    "description": "Fetch all todos. Returns an array — not wrapped in an object.",
+    "response": {
+      "type": "array",
+      "items": {
+        "id": "number",
+        "userId": "number",
+        "title": "string",
+        "completed": "boolean"
+      }
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/todos/:id",
+    "description": "Fetch a single todo by id.",
+    "response": {
+      "id": "number",
+      "userId": "number",
+      "title": "string",
+      "completed": "boolean"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/todos",
+    "description": "Create a todo. Returns 201 with the created object including a server-assigned id.",
+    "body": {
+      "title": "string",
+      "completed": "boolean",
+      "userId": "number"
+    },
+    "response": {
+      "id": "number",
+      "title": "string",
+      "completed": "boolean",
+      "userId": "number"
+    }
+  },
+  {
+    "method": "PATCH",
+    "path": "/todos/:id",
+    "description": "Partial update of a todo. Send only the fields to change.",
+    "body": {
+      "title": "string (optional)",
+      "completed": "boolean (optional)"
+    },
+    "response": {
+      "id": "number",
+      "userId": "number",
+      "title": "string",
+      "completed": "boolean"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/todos/:id",
+    "description": "Delete a todo. Returns 200 with an empty object {}.",
+    "response": {}
+  }
+]

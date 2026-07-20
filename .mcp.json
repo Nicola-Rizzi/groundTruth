@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "groundTruth": {
+      "command": "node",
+      "args": [
+        "./packages/groundtruth-mcp/dist/index.js"
+      ],
+      "env": {
+        "SHARED_UI_PATH": "./packages/acme-ui/src",
+        "API_CONTRACT_PATH": "./apps/todolistvite/api.json",
+        "PROMPTS_PATH": "./prompts"
+      }
+    }
+  }
+}

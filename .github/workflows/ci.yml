@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck (groundtruth-mcp)
+        run: npm run build --workspace packages/groundtruth-mcp
+
+      - name: Typecheck (todolistvite)
+        run: npx tsc -b --noEmit
+        working-directory: apps/todolistvite
+
+      # Delegates to every workspace's own "test" script (--if-present skips
+      # packages/acme-ui, which doesn't define one). Same command a clone runs
+      # locally — the CI can't silently drift from what's on the README.
+      - name: Test all workspaces
+        run: npm test
