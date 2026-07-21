@@ -1,5 +1,6 @@
 import { memo, useState } from "react"
 import type { Todo } from "../../types"
+import { PRIORITY_VARIANT } from "../../ai/types"
 import { Card } from "@acme/ui/card"
 import { Badge } from "@acme/ui/badge"
 import { Button } from "@acme/ui/button"
@@ -33,6 +34,10 @@ const TodoListItem = ({
           <Badge variant={todoItem.completed ? "success" : "muted"}>
             {todoItem.completed ? "done" : "pending"}
           </Badge>
+          {todoItem.priority && (
+            <Badge variant={PRIORITY_VARIANT[todoItem.priority]}>{todoItem.priority}</Badge>
+          )}
+          {todoItem.dueDate && <Badge variant="outline">due {todoItem.dueDate}</Badge>}
         </div>
         <div className="flex gap-2 shrink-0">
           <Button size="sm" variant="ghost" onClick={() => setShowBreakdown((v) => !v)}>

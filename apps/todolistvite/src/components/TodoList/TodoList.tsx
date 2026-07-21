@@ -7,7 +7,7 @@ interface TodoListProps {
   error: string | null;
   removeTodoListItem: (e: number) => void;
   markTodoListItem: (e: number) => void;
-  addTodo?: (title: string) => void;
+  addTodo?: (title: string, extra?: Pick<Todo, "priority" | "dueDate">) => void;
 }
 
 const TodoList = ({

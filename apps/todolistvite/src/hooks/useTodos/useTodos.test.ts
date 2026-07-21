@@ -27,4 +27,14 @@ describe('useTodos', () => {
     expect(result.current.todos).toHaveLength(1);
     expect(result.current.todos[0].title).toBe('Buy milk');
   });
+
+  it('addTodo attaches priority/dueDate locally — the API has nowhere to persist them', async () => {
+    const { result } = renderHook(() => useTodos());
+
+    await act(async () => {
+      result.current.addTodo('Call the dentist', { priority: 'high', dueDate: '2026-07-22' });
+    });
+
+    expect(result.current.todos[0]).toMatchObject({ priority: 'high', dueDate: '2026-07-22' });
+  });
 });
