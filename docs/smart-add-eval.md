@@ -29,6 +29,10 @@ A non-deterministic feature needs a different kind of test. `eval/smart-add.eval
 
 The suite gates on **both** a check-level and a case-level pass rate (a case counts only if *all* its checks pass). Run it in CI; change the prompt or bump the model and you see immediately whether quality moved.
 
+### Across models, not just across prompts
+
+`eval/smart-add.multi-model.eval.mjs` runs the identical golden set through several models in one process (currently Sonnet and Haiku — Haiku is also what a cost-sensitive deploy can pin via the `SMART_ADD_MODEL` env var, see `server/lib/parseTodo.mjs`) and reports pass rate per model, side by side. `buildRequest()`/`parseTodo()` take an optional `model` override for exactly this; the judge model is pinned independently (`JUDGE_MODEL` in `harness.mjs`) so the rubric doesn't shift depending on which model is under test — otherwise a cheaper model wouldn't just score lower, it'd be graded by a different judge, and the comparison would stop meaning anything.
+
 ### An honest note on eval design
 
 The case-level gate exists because the self-test caught a flaw. The first version gated only on a global check-rate: with ~23 checks, two real regressions still scored 91% and slipped past a 90% bar. The offline self-test (`eval/harness.selftest.mjs`, no API key needed) runs the harness against a *stub* model in two scenarios — a faithful one that must pass, and a deliberately regressed one that must fail — and it surfaced that the threshold was too coarse. Adding case-level gating (6/8 cases = 75%, well under the bar) made a two-case regression fail like it should. The eval testing the feature needed a test of its own.
@@ -43,6 +47,9 @@ npm run dev                              # the app, proxying /api to it
 # the eval against the real model
 ANTHROPIC_API_KEY=... npm run eval:smart-add
 
+# the same golden set across multiple models, side by side
+ANTHROPIC_API_KEY=... npm run eval:smart-add:multi-model
+
 # the harness self-test — offline, no key, proves the eval rewards correct
 # output and catches regressions
 npm run eval:smart-add:selftest
@@ -50,4 +57,4 @@ npm run eval:smart-add:selftest
 
 ## What this is not
 
-The demo backend (JSONPlaceholder) doesn't persist the enrichment — priority, due date, and tags are shown in the parse preview but the stored todo keeps the existing shape. The point being demonstrated is the structured-output parse and its evaluation, not the persistence layer. Wiring the enrichment through would mean extending the API contract — a mechanical change, deliberately left out to keep the feature focused on the AI surface.
+Priority and due date are shown on the list item (client-side), but the demo backend (JSONPlaceholder) has nowhere to persist them — its `/todos` contract is `{ id, userId, title, completed }`, full stop. `useTodos.addTodo()` attaches `priority`/`dueDate` to the local todo *after* the POST resolves rather than sending them to the API, so they survive in the running session but don't survive a reload. The point being demonstrated is the structured-output parse and its evaluation, not a real persistence layer — actually persisting the enrichment would mean extending the API contract itself (a mechanical change, deliberately out of scope here).

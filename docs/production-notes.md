@@ -31,10 +31,11 @@ A single structured line per call is enough to ship to any log drain and aggrega
 
 This is instrumentation, not an observability platform. The line is drawn here deliberately — a portfolio repo that bolts on a tracing stack would be sprawl, not signal. A production deployment at scale would add, roughly in order of payoff:
 
-- **Cost controls** — per-user and per-day spend caps, and rate limiting, so a runaway client can't run up a bill.
+- ~~**Rate limiting**, so a runaway client can't run up a bill.~~ **Built** — [`server/lib/rateLimit.mjs`](../apps/todolistvite/server/lib/rateLimit.mjs), 20 req/min per IP, shared between the dev server and the Vercel functions. It's a speed bump against casual abuse (in-memory, resets per instance/deploy), not a hard cap — the actual backstop against a runaway bill is a low spend limit set directly on the Anthropic console, which no amount of application code can substitute for.
+- **Per-user / per-day spend caps** — still not built. IP-based rate limiting slows down abuse from one source; it doesn't stop a determined attacker with many IPs, or account for legitimate variance in usage.
 - **Distributed tracing** — request IDs threaded from the browser through the server to the model call, so a slow request is debuggable end-to-end.
 - **Prompt/version tagging** — stamp each call with the prompt version (the `prompts/` library already versions them) so a quality or cost regression can be traced to a specific change.
 - **Eval-in-prod sampling** — run a slice of real traffic through the offline eval's judge to catch quality drift that a fixed golden set won't.
 - **Alerting** — on error rate (including the `502` "model returned junk" path the server already distinguishes), p95 latency, and daily cost.
 
-None of that is built. It's listed because knowing the path — and choosing not to walk all of it in a portfolio piece — is part of the judgment the repo is meant to show.
+Rate limiting aside, none of that is built. It's listed because knowing the path — and choosing not to walk all of it in a portfolio piece — is part of the judgment the repo is meant to show.

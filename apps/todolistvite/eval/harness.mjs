@@ -11,10 +11,15 @@
  * Both the parser client and the judge are injected, so this harness runs
  * against the real model (smart-add.eval.mjs) or a stub (harness.selftest.mjs).
  */
-import { parseTodo, ParseError, MODEL } from "../server/lib/parseTodo.mjs";
+import { parseTodo, ParseError } from "../server/lib/parseTodo.mjs";
 
 const TITLE_PASS_THRESHOLD = 0.7; // judge score at/above which the title is acceptable
 const SUITE_PASS_THRESHOLD = 0.9; // fraction of checks that must pass for the suite to pass
+
+// Fixed independent of the model under test — a judge that silently followed
+// SMART_ADD_MODEL (e.g. a demo deploy pinning Haiku) would grade every model
+// with a different judge, which stops the score from meaning anything across runs.
+const JUDGE_MODEL = "claude-sonnet-4-6";
 
 /** Build an LLM-as-judge from a `complete` function. Returns (args) => {score, reason}. */
 export function makeJudge(complete) {
@@ -32,7 +37,7 @@ export function makeJudge(complete) {
   };
   return async function judge({ input, title, conveys }) {
     const res = await complete({
-      model: MODEL,
+      model: JUDGE_MODEL,
       max_tokens: 256,
       system:
         "You grade whether a generated todo title faithfully and concisely captures the user's task. " +
@@ -72,11 +77,11 @@ function deterministicChecks(expect, parsed) {
 }
 
 /** Run one golden case end-to-end: parse, deterministic checks, then judge the title. */
-export async function runCase(testCase, { complete, judge }) {
+export async function runCase(testCase, { complete, judge, model }) {
   const { name, input, now, expect } = testCase;
   let parsed;
   try {
-    parsed = await parseTodo(input, complete, { now });
+    parsed = await parseTodo(input, complete, { now, model });
   } catch (err) {
     const why = err instanceof ParseError ? err.message : String(err);
     return { name, input, parsed: null, checks: [{ label: "parse succeeds", pass: false, detail: why }] };

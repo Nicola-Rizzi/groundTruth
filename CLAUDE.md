@@ -16,19 +16,29 @@ The fix is an MCP server that exposes the project's source of truth as queryable
 
 ```
 packages/
+  tokens/              @acme/tokens          — design tokens only, no React dependency
   acme-ui/             @acme/ui              — React components (Button, Input, Card, Badge)
   groundtruth-mcp/                           — MCP server: reads tokens + components + API contracts
   eslint-plugin-acme/  @acme/eslint-plugin   — ESLint rule: no-hardcoded-colors
 apps/
   todolistvite/                              — consumer demo app, wired to @acme/ui via Vite alias
+                                                (deployed on Vercel — see root vercel.json)
   ui-docs/                                   — Storybook: interactive docs for every component variant
+api/                                         — Vercel functions for todolistvite's smart-add/breakdown.
+                                                Lives at repo root, not apps/todolistvite/api, because Vercel
+                                                Functions must sit under the project's Root Directory, and Root
+                                                Directory has to stay unset for the build to reach packages/acme-ui
 scripts/
   review-pr.js                               — calls Claude API to review a git diff against project rules
   generate-docs.js                           — generates acme-ui README from live MCP tool output
   generate-stories.js                        — generates Storybook story files from live MCP tool output
+  demo-storyboard.sh                         — scripted before/after terminal recording for the project GIF
 .github/workflows/
   pr-review.yml                              — runs review-pr.js on every PR, posts result as comment
   token-drift.yml                            — fails if tokens.json changed without regenerating index.css
+vercel.json                                  — deploy config for apps/todolistvite (buildCommand/outputDirectory
+                                                scoped into the app; Root Directory left unset, see api/ above)
+render.yaml                                  — Render blueprint for groundtruth-mcp's HTTP transport
 ```
 
 ---
@@ -197,7 +207,8 @@ PORT=4000 npm run start:http   # custom port (default 3100)
 ```
 
 - **stdio** is the zero-config default: the root `.mcp.json` uses `command` + `args`, so each developer's client spawns its own process. Good for solo work.
-- **HTTP** is for the shared-server case: run it once (locally or on a shared host) and point every client's config at `http://<host>:3100/mcp` instead of a command. Health check at `/health`.
+- **HTTP** is for the shared-server case: run it once (locally or on a shared host) and point every client's config at `http://<host>:3100/mcp` instead of a command. Health check at `/health` (stays open with no token, even when auth is on).
+- **Auth on HTTP is opt-in via `AUTH_TOKEN`** — unset, any request is accepted (matches the pre-auth default); set it and clients need `Authorization: Bearer <token>` on every `/mcp` request. See `src/http.ts` and the README's "Live demo" section (the public Render deploy runs with auth on).
 
 Rules specific to `packages/groundtruth-mcp/src/`:
 - All tool registrations go in `src/server.ts` (`createMcpServer()`). Never add tools to `index.ts` or `http.ts` — those are just transport entry points.

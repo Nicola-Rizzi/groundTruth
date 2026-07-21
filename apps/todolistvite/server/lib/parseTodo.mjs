@@ -82,9 +82,12 @@ export class ParseError extends Error {
 /**
  * Build the request. `now` is injected (not read from the clock) so the eval can
  * assert date math against a fixed reference — relative dates are only testable
- * if "today" is deterministic.
+ * if "today" is deterministic. `model` defaults to the module constant but can be
+ * overridden per call — the multi-model eval (eval/smart-add.multi-model.eval.mjs)
+ * runs the same input through several models in one process, which a fixed import
+ * can't do.
  */
-export function buildRequest(input, now) {
+export function buildRequest(input, now, model = MODEL) {
   const today = now instanceof Date ? now : new Date(now);
   const todayIso = today.toISOString().slice(0, 10);
   const weekday = today.toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
@@ -95,7 +98,7 @@ export function buildRequest(input, now) {
     `Today is ${weekday}, ${todayIso} (UTC). Always call create_todo exactly once.`;
 
   return {
-    model: MODEL,
+    model,
     max_tokens: 512,
     system,
     tools: [CREATE_TODO_TOOL],
@@ -150,7 +153,7 @@ export function validateParsed(raw) {
  * The end-to-end parse. `complete` is injected: (request) => Promise<AnthropicResponse>.
  * @param {string} input
  * @param {(request: object) => Promise<{content: Array<object>}>} complete
- * @param {{ now?: Date | string }} [opts]
+ * @param {{ now?: Date | string, model?: string }} [opts]
  */
 export async function parseTodo(input, complete, opts = {}) {
   if (typeof input !== "string" || input.trim().length === 0) {
@@ -160,6 +163,6 @@ export async function parseTodo(input, complete, opts = {}) {
     throw new ParseError(`Input exceeds ${MAX_INPUT_LENGTH} characters`);
   }
   const now = opts.now ?? new Date();
-  const response = await complete(buildRequest(input, now));
+  const response = await complete(buildRequest(input, now, opts.model));
   return validateParsed(extractToolInput(response));
 }

@@ -12,6 +12,7 @@
     "test:e2e": "playwright test",
     "dev:api": "node server/index.mjs",
     "eval:smart-add": "node eval/smart-add.eval.mjs",
+    "eval:smart-add:multi-model": "node eval/smart-add.multi-model.eval.mjs",
     "eval:smart-add:selftest": "node eval/harness.selftest.mjs",
     "test:watch": "vitest"
   },
