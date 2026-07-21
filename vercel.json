@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build --workspace=apps/todolistvite",
+  "outputDirectory": "apps/todolistvite/dist",
+  "functions": {
+    "api/breakdown.js": {
+      "maxDuration": 60
+    },
+    "api/parse-todo.js": {
+      "maxDuration": 30
+    }
+  }
+}

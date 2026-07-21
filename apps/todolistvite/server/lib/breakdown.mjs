@@ -6,7 +6,11 @@
  * not a structured blob that only resolves at the end. The frontend turns the
  * growing text into discrete subtasks incrementally (src/ai/parseSubtaskStream.ts).
  */
-export const BREAKDOWN_MODEL = "claude-sonnet-4-6";
+// Overridable per deploy — e.g. a public demo pins a cheaper model via env var
+// without touching code, while local dev keeps the default.
+export const BREAKDOWN_MODEL = process.env.BREAKDOWN_MODEL ?? "claude-sonnet-4-6";
+
+export const MAX_INPUT_LENGTH = 500;
 
 export function buildBreakdownRequest(input) {
   return {

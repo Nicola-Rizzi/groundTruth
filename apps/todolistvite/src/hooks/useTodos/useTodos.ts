@@ -29,16 +29,21 @@ const useTodos = () => {
     fetchTodos();
   }, []);
 
-  // MCP POST /todos body: { title, completed, userId } — response includes server-assigned id
-  const addTodo = useCallback(async (title: string) => {
-    const res = await fetch(BASE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, completed: false, userId: 1 }),
-    });
-    const created: Todo = await res.json();
-    setTodos((prev) => [created, ...prev]);
-  }, []);
+  // MCP POST /todos body: { title, completed, userId } — response includes server-assigned id.
+  // priority/dueDate aren't part of that contract (jsonplaceholder has nowhere to persist
+  // them), so they're merged into the local todo after the fact rather than sent to the API.
+  const addTodo = useCallback(
+    async (title: string, extra?: Pick<Todo, "priority" | "dueDate">) => {
+      const res = await fetch(BASE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, completed: false, userId: 1 }),
+      });
+      const created: Todo = await res.json();
+      setTodos((prev) => [{ ...created, ...extra }, ...prev]);
+    },
+    []
+  );
 
   const removeTodoListItem = useCallback((todoId: number) => {
     // JSONPlaceholder DELETE returns {} — optimistic removal is correct here

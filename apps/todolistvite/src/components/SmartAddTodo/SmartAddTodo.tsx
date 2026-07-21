@@ -3,18 +3,14 @@ import { Input } from "@acme/ui/input"
 import { Button } from "@acme/ui/button"
 import { Badge } from "@acme/ui/badge"
 import { useSmartAdd } from "../../hooks/useSmartAdd/useSmartAdd"
-import type { ParsedTodo } from "../../ai/types"
+import { PRIORITY_VARIANT } from "../../ai/types"
+import type { Todo } from "../../types"
 
-// Map the parsed priority to a real Badge variant. These names come straight
-// from the design system (get_component_api("Badge")): high→accent (amber,
-// attention), medium→default, low→muted. Using real variants, not guesses.
-const PRIORITY_VARIANT: Record<ParsedTodo["priority"], "accent" | "default" | "muted"> = {
-  high: "accent",
-  medium: "default",
-  low: "muted",
-}
-
-const SmartAddTodo = ({ addTodo }: { addTodo: (title: string) => void }) => {
+const SmartAddTodo = ({
+  addTodo,
+}: {
+  addTodo: (title: string, extra?: Pick<Todo, "priority" | "dueDate">) => void
+}) => {
   const [text, setText] = useState("")
   const { status, result, error, parse, reset } = useSmartAdd()
 
@@ -26,7 +22,7 @@ const SmartAddTodo = ({ addTodo }: { addTodo: (title: string) => void }) => {
 
   const handleAdd = () => {
     if (!result) return
-    addTodo(result.title)
+    addTodo(result.title, { priority: result.priority, dueDate: result.dueDate })
     setText("")
     reset()
   }
