@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: groundtruth-mcp
+    runtime: node
+    plan: free
+    rootDir: packages/groundtruth-mcp
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:http
+    healthCheckPath: /health
+    envVars:
+      - key: AUTH_TOKEN
+        sync: false

@@ -14,7 +14,11 @@
  * gate. An LLM that returns a bad shape is a runtime reality, not an edge case.
  */
 
-export const MODEL = "claude-sonnet-4-6";
+// Overridable per deploy — e.g. a public demo pins a cheaper model via env var
+// without touching code, while local dev/eval keep the default.
+export const MODEL = process.env.SMART_ADD_MODEL ?? "claude-sonnet-4-6";
+
+export const MAX_INPUT_LENGTH = 500;
 
 /**
  * The structured-output contract. We force the model to call this tool, so the
@@ -151,6 +155,9 @@ export function validateParsed(raw) {
 export async function parseTodo(input, complete, opts = {}) {
   if (typeof input !== "string" || input.trim().length === 0) {
     throw new ParseError("Input is empty");
+  }
+  if (input.length > MAX_INPUT_LENGTH) {
+    throw new ParseError(`Input exceeds ${MAX_INPUT_LENGTH} characters`);
   }
   const now = opts.now ?? new Date();
   const response = await complete(buildRequest(input, now));

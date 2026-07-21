@@ -139,11 +139,19 @@ cd packages/groundtruth-mcp && npm run start:http   # http://localhost:3100/mcp
 
 Then in the client config, replace the `command`/`args` block with `"url": "http://your-server:3100/mcp"`.
 
+**Auth is opt-in.** Unset `AUTH_TOKEN`, the server accepts any request — fine for localhost or a trusted network, and matches the default before this option existed. Set it before exposing the port beyond that:
+
+```bash
+AUTH_TOKEN=some-long-random-value npm run start:http
+```
+
+Clients then need `Authorization: Bearer some-long-random-value` on every request to `/mcp`. `/health` stays open either way — a load balancer needs to probe liveness without holding a credential, and it leaks nothing beyond "the process is up." Token comparison is constant-time (`crypto.timingSafeEqual`), so a wrong guess can't be brute-forced via response timing.
+
 The agent rules live in [`CLAUDE.md`](CLAUDE.md) (Claude-specific). Cursor uses `.cursorrules`, Windsurf uses `.windsurfrules` — same content, different filename.
 
 ## Design decisions
 
-- **Filesystem-only, no auth.** The server reads files on every tool call. Works in any environment without secrets or network access.
+- **Filesystem-only.** The server reads files on every tool call — no database, no network calls beyond MCP itself. Auth on the HTTP transport is opt-in (`AUTH_TOKEN`, see above); stdio has no separate auth layer since the client already controls what it spawns.
 - **Tokens are a separate package.** `@acme/tokens` has no React dependency — native apps, email templates, or CSS-in-JS can consume tokens without pulling in components.
 - **One server factory, two transports.** `createMcpServer()` is called by both `index.ts` (stdio) and `http.ts` (HTTP), so the tool set is defined once and can't drift between them.
 - **`cva()` variant extraction uses brace-counting, not regex.** Tailwind's arbitrary-value syntax contains `{` characters, which breaks regex parsers. The brace-counter handles arbitrary nesting correctly — and `npm run eval` proves it stays correct.

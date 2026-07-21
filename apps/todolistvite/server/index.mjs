@@ -8,9 +8,11 @@
  * logic (server/lib/parseTodo.mjs) is identical; only this transport shell changes.
  */
 import { createServer } from "node:http";
-import { parseTodo, ParseError } from "./lib/parseTodo.mjs";
-import { buildBreakdownRequest } from "./lib/breakdown.mjs";
+import { parseTodo, ParseError, MAX_INPUT_LENGTH as MAX_PARSE_INPUT_LENGTH } from "./lib/parseTodo.mjs";
+import { buildBreakdownRequest, MAX_INPUT_LENGTH as MAX_BREAKDOWN_INPUT_LENGTH } from "./lib/breakdown.mjs";
 import { makeComplete, makeStreamText } from "./lib/anthropicClient.mjs";
+import { isRateLimited } from "./lib/rateLimit.mjs";
+import { clientIp } from "./lib/clientIp.mjs";
 
 const PORT = Number(process.env.API_PORT ?? 8787);
 const complete = makeComplete();       // throws early if no key — fail fast, not mid-request
@@ -35,6 +37,10 @@ const server = createServer(async (req, res) => {
     return send(res, 404, { error: "Not found. POST /api/parse-todo or /api/breakdown." });
   }
 
+  if (isRateLimited(clientIp(req))) {
+    return send(res, 429, { error: "Too many requests. Try again in a minute." });
+  }
+
   // ── Streaming: break a task into subtasks (Server-Sent Events) ───────────────
   if (req.url === "/api/breakdown") {
     let input;
@@ -45,6 +51,9 @@ const server = createServer(async (req, res) => {
     }
     if (typeof input !== "string" || !input.trim()) {
       return send(res, 400, { error: "Body must be { input: string }." });
+    }
+    if (input.length > MAX_BREAKDOWN_INPUT_LENGTH) {
+      return send(res, 400, { error: `Input exceeds ${MAX_BREAKDOWN_INPUT_LENGTH} characters.` });
     }
     // SSE headers: stream frames as they arrive, no buffering.
     res.writeHead(200, {
@@ -72,6 +81,9 @@ const server = createServer(async (req, res) => {
     const { input } = await readJson(req);
     if (typeof input !== "string" || !input.trim()) {
       return send(res, 400, { error: "Body must be { input: string }." });
+    }
+    if (input.length > MAX_PARSE_INPUT_LENGTH) {
+      return send(res, 400, { error: `Input exceeds ${MAX_PARSE_INPUT_LENGTH} characters.` });
     }
     const parsed = await parseTodo(input, complete);
     return send(res, 200, parsed);
