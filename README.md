@@ -102,6 +102,30 @@ sh -c 'echo "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":
 npm run eval
 ```
 
+## Live demo
+
+- **App:** [ground-truth-todolistvite-ks4b.vercel.app](https://ground-truth-todolistvite-ks4b.vercel.app) — smart-add and task breakdown running against the real Anthropic API.
+- **MCP server:** `https://groundtruth-mcp.onrender.com/mcp` — the same server described above, publicly reachable, bearer-token protected.
+
+Point any MCP-compatible client at the public server in about 30 seconds — no cloning, no local build. In your client's config (see the table below for the file location), swap the `command`/`args` block for:
+
+```json
+{
+  "mcpServers": {
+    "groundTruth": {
+      "url": "https://groundtruth-mcp.onrender.com/mcp",
+      "headers": {
+        "Authorization": "Bearer <ask the repo owner for the token>"
+      }
+    }
+  }
+}
+```
+
+The token isn't published here — it's a real credential gating a live server, not a demo value. Ask for it, or spin up your own instance (see "HTTP (shared server)" below) and set your own `AUTH_TOKEN`.
+
+The Render free tier spins down after inactivity — the first request after a quiet period can take 20-30s to wake it back up. `/health` is what a keep-alive (e.g. a free UptimeRobot monitor hitting it every 5 minutes) would ping to avoid that cold start.
+
 ## Connect to your AI client
 
 The MCP protocol is client-agnostic. Two ways to run it:
