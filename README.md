@@ -30,7 +30,7 @@ todolistvite          ← consumer app — generated code compiles first time
 
 ## AI across the workflow, not just code-gen
 
-The MCP solves correctness at write time. But the same source-of-truth approach is applied at four distinct stages of the lifecycle — the point being that AI is wired across the workflow, with one shared source of truth and a human owning the judgment at each step.
+The MCP solves correctness at write time. But the same source-of-truth approach is applied at five distinct stages of the lifecycle — the point being that AI is wired across the workflow, with one shared source of truth and a human owning the judgment at each step.
 
 | Stage | What runs | Where |
 |---|---|---|
@@ -38,6 +38,9 @@ The MCP solves correctness at write time. But the same source-of-truth approach 
 | **Review** | Claude API reviews every PR diff against project-specific rules, posts comments | [`scripts/review-pr.js`](scripts/review-pr.js), CI |
 | **Testing** | Storybook stories generated from live MCP output, so coverage tracks the real variants | [`scripts/generate-stories.js`](scripts/generate-stories.js) |
 | **Documentation** | Component docs generated from live MCP output | [`scripts/generate-docs.js`](scripts/generate-docs.js) |
+| **Remediation** | Agent finds hardcoded hex, resolves the real token via MCP, fixes it only with human approval | [`packages/auditor-agent`](packages/auditor-agent) |
+
+The first four are single-shot: one call to the MCP, one file out. Remediation is different in kind, not just in name — it's a multi-step [LangGraph](https://github.com/langchain-ai/langgraphjs) graph (scan → look up → **pause for approval** → apply or skip → loop), because it's the first stage in this table that actually writes to source files. Everything else in this repo that touches the MCP is read-only; this one isn't, so it's the one place a human-in-the-loop gate is load-bearing rather than decorative.
 
 The [`prompts/`](prompts) directory holds versioned, parameterized prompts for each stage — shared and reviewable, not chat one-offs. [`docs/agentic-workflow.md`](docs/agentic-workflow.md) is a worked, honest write-up of a real multi-step agentic run.
 
@@ -77,6 +80,7 @@ Here, that's a non-issue: the source is the repo itself, trusted at the same lev
 | [`packages/acme-ui`](packages/acme-ui) | React component library on Tailwind + shadcn patterns. Button, Input, Card, Badge. Each uses `cva()` for typed variant props. |
 | [`packages/groundtruth-mcp`](packages/groundtruth-mcp) | The MCP server. Reads from `tokens.json`, component `.tsx` source, and `api.json`. Seven tools: `list_tokens`, `get_token`, `find_token_for_value` (reverse lookup — raw value in, matching token out), `list_components`, `get_component_api`, `list_endpoints`, `get_endpoint`; plus one prompt, `component_from_spec`. `list_*` tools paginate (`limit`/`offset`) so results stay bounded at scale. Ships an eval (`npm run eval`) that proves the parser stays faithful to source, plus an e2e suite (`npm test`) that drives the server through the real MCP SDK client — in-memory and over a live stdio subprocess. |
 | [`packages/eslint-plugin-acme`](packages/eslint-plugin-acme) | `no-hardcoded-colors` — catches hex literals at write time. |
+| [`packages/auditor-agent`](packages/auditor-agent) | LangGraph agent — finds hardcoded hex, resolves the token via the MCP server's own `find_token_for_value`, applies the fix only with human-in-the-loop approval (`interrupt()`/`Command`). The one MCP consumer in this repo that writes files, so the only one that needs the gate. `npm run demo` for an immediate walkthrough. |
 | [`apps/todolistvite`](apps/todolistvite) | Consumer demo. Components rewritten from MCP output, imported from the real package via a Vite alias. Also hosts the **smart-add** runtime LLM feature ([`server/`](apps/todolistvite/server), [`eval/`](apps/todolistvite/eval)) — natural-language → structured todo, with its own eval suite, per-IP rate limiting, and a per-deploy model override (`SMART_ADD_MODEL`/`BREAKDOWN_MODEL`). Deployed on Vercel — see [Live demo](#live-demo). |
 | [`apps/ui-docs`](apps/ui-docs) | Storybook — every variant of every component, generated from live MCP output. |
 

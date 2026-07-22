@@ -582,7 +582,10 @@ packages/eslint-plugin-acme/
 │
 └── rules/
     ├── no-hardcoded-colors.js
-    │     visits: JSXExpressionContainer, TemplateLiteral
+    │     visits: JSXExpressionContainer, TemplateLiteral,
+    │             JSXAttribute (className/class only — the arbitrary-value
+    │             Tailwind form, e.g. className="bg-[#B91C1C]", is a bare
+    │             string literal, never wrapped in an expression container)
     │     flags: string literals matching /#[0-9a-fA-F]{3,8}/
     │     message: "Use rgb(var(--token)). Run list_tokens."
     │
@@ -596,7 +599,52 @@ Both rules are wired into `apps/todolistvite/eslint.config.js` as `"error"` seve
 
 ---
 
-## 10. How data flows end-to-end for a single agent task
+## 10. Auditor Agent Architecture
+
+Every tool in sections 6-9 is either read-only (the MCP itself) or single-shot
+(`review-pr.js`, `generate-stories.js`, `generate-docs.js` — one call in, one
+file out). `packages/auditor-agent` is neither: it's a multi-step
+[LangGraph](https://github.com/langchain-ai/langgraphjs) graph that writes to
+source files, gated behind explicit human approval before every write.
+
+```
+START ──▶ scan ──▶ lookupToken ──▶ approve ──▶ applyOrSkip ──▶ report ──▶ END
+                        ▲          (interrupt)                   │
+                        │                                        │
+                        └──────── loop while matches remain ─────┘
+
+scan          — walks a directory for .tsx files, regex-matches hardcoded
+                hex literals (same pattern @acme/no-hardcoded-colors flags)
+lookupToken   — calls the real groundtruth-mcp server's find_token_for_value
+                for the current match, over the same spawn-over-stdio
+                transport generate-docs.js/generate-stories.js already use
+approve       — calls interrupt(payload); execution pauses (persisted via a
+                MemorySaver checkpointer) until the CLI resumes with
+                new Command({ resume: { approved: boolean } })
+applyOrSkip   — writes the file only if approved; otherwise just logs the skip
+report        — prints a summary once every match in every file is resolved
+```
+
+**Why this one needs human-in-the-loop and the MCP server itself doesn't:**
+`groundtruth-mcp` is deliberately read-only (§3.2) — there is nothing there
+for a human to approve. This agent edits files on disk, a real and
+consequential action, so pausing for explicit approval before every write is
+the correct amount of caution, not decoration.
+
+**A real gotcha, found by running it, not by reading the code:** resuming
+with `new Command({ resume: false })` throws `EmptyInputError` — LangGraph
+checks whether a resume value was *provided* by testing truthiness, so a
+literal `false` is indistinguishable from "no value given at all". Fixed by
+always resuming with an object, `{ approved: false }`, never a bare boolean.
+`packages/auditor-agent/test/cli.test.mjs` exercises the rejection path so
+this can't regress silently.
+
+Full write-up, including a second gotcha about how *not* to test a CLI that
+pauses for input: [`packages/auditor-agent/README.md`](packages/auditor-agent/README.md).
+
+---
+
+## 11. How data flows end-to-end for a single agent task
 
 Full trace: developer asks agent "add an error state to the Input":
 
@@ -605,7 +653,7 @@ Full trace: developer asks agent "add an error state to the Input":
    → sees Rule 1: call get_component_api before writing JSX
 
 2. Agent calls get_component_api("input")
-   → MCP reads apps/acme-ui/src/components/ui/input.tsx
+   → MCP reads packages/acme-ui/src/components/ui/input.tsx
    → parser finds cva() call, extracts variants
    → returns: variant: 'default'|'error'|'ghost'
 
@@ -671,3 +719,4 @@ Without MCP:
 | Vercel deploy config | `vercel.json` | Root Directory left unset so the build can still reach `packages/acme-ui`; buildCommand/outputDirectory scoped into `apps/todolistvite` |
 | Render deploy config | `render.yaml` | Blueprint for groundtruth-mcp's HTTP transport, `AUTH_TOKEN` set as an unsynced secret |
 | Demo recording script | `scripts/demo-storyboard.sh` | Scripted before/after terminal recording for the project GIF |
+| Auditor agent | `packages/auditor-agent/` | LangGraph agent: finds hardcoded hex, resolves via MCP, applies fixes only with human-in-the-loop approval — see §10 |

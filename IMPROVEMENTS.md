@@ -49,11 +49,23 @@ Redux was removed from the project. No state management library is in use — th
 
 **What was done:**
 - Created `packages/eslint-plugin-acme/` workspace package (`@acme/eslint-plugin`)
-- Rule `@acme/no-hardcoded-colors` flags hex literals in JSX expressions and template literals
+- Rule `@acme/no-hardcoded-colors` flags hex literals in JSX expressions, template literals, and bare `className`/`class` string attributes (the Tailwind arbitrary-value form, `className="bg-[#B91C1C]"` — added after a full review found the original version never caught it, despite it being the form every component in this repo actually uses)
 - Error message names the exact MCP tool to run to find the right token
 - Wired into `apps/todolistvite/eslint.config.js` as `"error"` severity
 - Root `eslint.config.js` covers all apps if app-level config doesn't exist
 - Verified: zero violations on the current clean codebase; fires correctly on planted test
+
+---
+
+### ~~Plan F — LangGraph human-in-the-loop auditor agent~~ ✅ DONE
+
+**What was done:**
+- Created `packages/auditor-agent/` workspace package (`@acme/auditor-agent`)
+- A real `@langchain/langgraph` `StateGraph`: scan for hardcoded hex → resolve via the MCP server's `find_token_for_value` → `interrupt()` for human approval → apply or skip → loop → report
+- The only MCP consumer in the repo that writes files, so the only one that needs a human-in-the-loop gate — everything else (the MCP server itself, `generate-docs.js`, `generate-stories.js`) is read-only or produces its output in one shot
+- Ships with a demo fixture (two intentional hardcoded hex colors) and a subprocess-driven test that exercises both the approve and reject paths
+- Found and fixed two real bugs by actually running it: `Command({ resume: false })` throws `EmptyInputError` (LangGraph tests resume-value truthiness, so a bare `false` looks like "no value" — fixed by always resuming with `{ approved: boolean }`), and a piped-stdin test harness (`printf 'y\ny\n' | node cli.mjs`) hides a `readline/promises` quirk that never affects real interactive use
+- Full write-up: `packages/auditor-agent/README.md`, `ARCHITECTURE.md` §10
 
 ---
 
@@ -185,3 +197,14 @@ Redux was removed from the project. No state management library is in use — th
 | AUTH_TOKEN set — malformed header rejected | `Authorization: secret` (no `Bearer` scheme) → 401 |
 | AUTH_TOKEN set — correct token accepted | `Authorization: Bearer secret` → tool result, not 401 |
 | /health stays open regardless | `AUTH_TOKEN` set, `curl http://localhost:3100/health` with no header → 200 `{"status":"ok",...}` |
+
+### Auditor agent (packages/auditor-agent)
+
+| Use case | How to test |
+|---|---|
+| Finds hardcoded hex | `npm run demo` (in `packages/auditor-agent`) → both hexes in `demo-fixture/LegacyAlert.tsx` reported |
+| Resolves the real token via MCP | Output shows `MCP find_token_for_value("#B91C1C") → Exact match: color.feedback.error ...` |
+| Approved fix is applied | Answer `y` at the prompt → file on disk shows `rgb(var(--feedback-error))` in place of the hex |
+| Rejected fix is left alone | Answer anything but `y` → the hex is untouched, reported as skipped |
+| Resuming with a rejection doesn't crash | Automated: `packages/auditor-agent/test/cli.test.mjs` resumes with `{ approved: false }` and asserts a clean exit — regression test for the `Command({ resume: false })` → `EmptyInputError` bug |
+| Interactive approval loop works end-to-end | Automated: same test drives the CLI as a subprocess with stdin kept open (not piped-and-closed), approving one fix and rejecting the other in a single run |
