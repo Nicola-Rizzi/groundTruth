@@ -36,8 +36,12 @@ function callTool(name, args = {}) {
   });
   const result = spawnSync("node", [MCP], { input: payload + "\n", env, encoding: "utf8" });
   if (result.error) throw result.error;
-  const parsed = JSON.parse(result.stdout);
-  return parsed.result?.content?.[0]?.text ?? "";
+  try {
+    const parsed = JSON.parse(result.stdout);
+    return parsed.result?.content?.[0]?.text ?? "";
+  } catch {
+    throw new Error(`Failed to parse MCP response for "${name}": ${result.stdout.slice(0, 200)}`);
+  }
 }
 
 // ─── Prop parser ──────────────────────────────────────────────────────────────
@@ -77,7 +81,10 @@ const STORY_CHILDREN = {
 
 function storyChildren(componentName, variant) {
   const map = STORY_CHILDREN[componentName];
-  return map?.[variant] ?? (map ? "Button" : null);
+  // Fall back to the variant name itself (capitalized) for any variant not
+  // explicitly mapped — a hardcoded "Button" fallback would mislabel every
+  // unmapped Badge variant with text that has nothing to do with it.
+  return map?.[variant] ?? (map ? capitalize(variant) : null);
 }
 
 function capitalize(s) {
@@ -151,12 +158,21 @@ function buildCardStories(props) {
 
 function buildStoryFile(rawName, text) {
   const name = capitalize(rawName);
-  const importPathMatch = text.match(/^import \S+ from "([^"]+)"/m);
-  const importPath = importPathMatch ? importPathMatch[1] : `@acme/ui/${rawName}`;
+  // get_component_api's real output is `import { Name } from "@acme/ui/name";`
+  // — a braced named import, not `import Name from "..."`. Matching only the
+  // `from "..."` clause is robust to either import style; the previous regex
+  // (`^import \S+ from`) never matched a braced import at all, so importPath
+  // silently fell back to `@acme/ui/${rawName}` on every single run.
+  const importPathMatch = text.match(/from "([^"]+)";?\s*$/m);
+  const importPath = importPathMatch ? importPathMatch[1] : `@acme/ui/${rawName.toLowerCase()}`;
+  // The lowercase filename segment (e.g. "card"), not `rawName` — get_component_api
+  // returns the resolved PascalCase export name ("Card"), and every check below
+  // (hasChildren, the Card special-case) is keyed to the lowercase file convention.
+  const fileBase = importPath.split("/").pop();
   const props = parseProps(text);
   const variantProp = props.find(p => p.name === "variant");
   const sizeProp    = props.find(p => p.name === "size");
-  const hasChildren = ["button", "badge"].includes(rawName);
+  const hasChildren = ["button", "badge"].includes(fileBase);
 
   const argTypes = buildArgTypes(props);
   const header = [
@@ -169,13 +185,13 @@ function buildStoryFile(rawName, text) {
   let imports;
   let stories;
 
-  if (rawName === "card") {
+  if (fileBase === "card") {
     imports = `import { Card, CardHeader, CardTitle, CardContent } from "${importPath}";`;
     stories = buildCardStories(props);
   } else {
     imports = `import { ${name} } from "${importPath}";`;
-    const variantStories = variantProp ? buildVariantStories(rawName, variantProp, hasChildren) : "";
-    const sizeStories = sizeProp ? buildSizeStories(rawName, sizeProp, variantProp, hasChildren) : "";
+    const variantStories = variantProp ? buildVariantStories(fileBase, variantProp, hasChildren) : "";
+    const sizeStories = sizeProp ? buildSizeStories(fileBase, sizeProp, variantProp, hasChildren) : "";
     stories = [variantStories, sizeStories].filter(Boolean).join("\n");
   }
 

@@ -9,9 +9,9 @@ export const badgeVariants = cva(
       variant: {
         default:     "bg-[rgb(var(--brand))] text-[rgb(var(--brand-foreground))]",
         outline:     "border border-[rgb(var(--border))] text-[rgb(var(--text))]",
-        success:     "bg-green-100 text-[rgb(var(--feedback-success))]",
-        error:       "bg-red-100 text-[rgb(var(--feedback-error))]",
-        accent:      "bg-amber-100 text-[rgb(var(--brand-accent))]",
+        success:     "bg-[rgb(var(--feedback-success)/0.15)] text-[rgb(var(--feedback-success))]",
+        error:       "bg-[rgb(var(--feedback-error)/0.15)] text-[rgb(var(--feedback-error))]",
+        accent:      "bg-[rgb(var(--brand-accent)/0.15)] text-[rgb(var(--brand-accent))]",
         muted:       "bg-[rgb(var(--surface-subtle))] text-[rgb(var(--text-muted))]",
       },
     },

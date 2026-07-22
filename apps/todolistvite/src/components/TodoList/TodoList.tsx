@@ -24,13 +24,14 @@ const TodoList = ({
   return (
     <ul>
       {todos.map((todo) => (
-        <TodoListItem
-          key={todo.id}
-          todoItem={todo}
-          removeTodoListItem={removeTodoListItem}
-          markTodoListItem={markTodoListItem}
-          addTodo={addTodo}
-        />
+        <li key={todo.id}>
+          <TodoListItem
+            todoItem={todo}
+            removeTodoListItem={removeTodoListItem}
+            markTodoListItem={markTodoListItem}
+            addTodo={addTodo}
+          />
+        </li>
       ))}
     </ul>
   );

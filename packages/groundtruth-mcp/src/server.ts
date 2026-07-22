@@ -26,6 +26,9 @@ const pageParams = {
 };
 
 function paginate<T>(items: T[], limit = DEFAULT_LIMIT, offset = 0) {
+  if (items.length > 0 && offset >= items.length) {
+    return { page: [], notice: `\n\n[offset=${offset} is past the end — only ${items.length} item(s) exist.]` };
+  }
   const page = items.slice(offset, offset + limit);
   const notice =
     items.length > offset + page.length
@@ -70,12 +73,23 @@ export function createMcpServer(): McpServer {
     "Resolve a single design token by exact name to its current value.",
     { name: z.string().describe("Token name, e.g. 'color.brand.primary'.") },
     async ({ name }) => {
-      const token = loadTokens().find(t => t.name === name);
+      const tokens = loadTokens();
+      const token = tokens.find(t => t.name === name);
       if (!token) {
-        const suggestions = loadTokens()
-          .filter(t => t.name.includes(name.split(".")[0] ?? ""))
-          .map(t => t.name)
-          .slice(0, 5);
+        // Rank by how many dot-separated segments the query shares with each
+        // candidate — a typo anywhere but the first segment (e.g.
+        // "color.brnad.primary") still surfaces the right token, unlike
+        // matching only name.split(".")[0].
+        const querySegments = new Set(name.split("."));
+        const suggestions = tokens
+          .map(t => ({
+            name: t.name,
+            shared: t.name.split(".").filter(seg => querySegments.has(seg)).length,
+          }))
+          .filter(t => t.shared > 0)
+          .sort((a, b) => b.shared - a.shared)
+          .slice(0, 5)
+          .map(t => t.name);
         return {
           content: [{
             type: "text",
@@ -121,11 +135,12 @@ export function createMcpServer(): McpServer {
     "Get the full prop API for a component, parsed live from its .tsx source file.",
     { name: z.string().describe("Component name, e.g. 'Button'.") },
     async ({ name }) => {
-      const component = loadComponents().find(
+      const components = loadComponents();
+      const component = components.find(
         c => c.name.toLowerCase() === name.toLowerCase()
       );
       if (!component) {
-        const names = loadComponents().map(c => c.name).join(", ");
+        const names = components.map(c => c.name).join(", ");
         return {
           content: [{ type: "text", text: `Component "${name}" not found. Available: ${names}.` }],
           isError: true,
@@ -175,9 +190,10 @@ export function createMcpServer(): McpServer {
     "Get the full request/response contract for one endpoint. Use the exact path from list_endpoints.",
     { path: z.string().describe("Endpoint path, e.g. '/todos' or '/todos/:id'.") },
     async ({ path }) => {
-      const endpoint = loadApiContracts().find(e => e.path === path);
+      const endpoints = loadApiContracts();
+      const endpoint = endpoints.find(e => e.path === path);
       if (!endpoint) {
-        const paths = loadApiContracts().map(e => `${e.method} ${e.path}`).join(", ");
+        const paths = endpoints.map(e => `${e.method} ${e.path}`).join(", ");
         return {
           content: [{ type: "text", text: `Endpoint "${path}" not found. Available: ${paths}.` }],
           isError: true,

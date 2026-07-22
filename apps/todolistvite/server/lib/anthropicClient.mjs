@@ -46,12 +46,15 @@ export function makeStreamText(apiKey = process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is not set. Export it before running the server.");
   }
   const client = new Anthropic({ apiKey });
-  return async function* streamText(request) {
+  // `signal` lets the caller cancel the upstream call when the client disconnects
+  // mid-stream — without it, the Anthropic request (and its cost) keeps running
+  // after nobody is listening for the output anymore.
+  return async function* streamText(request, { signal } = {}) {
     const start = performance.now();
     let ttftMs = null;
     const usage = { input_tokens: 0, output_tokens: 0 };
 
-    const stream = client.messages.stream(request);
+    const stream = client.messages.stream(request, { signal });
     for await (const event of stream) {
       if (event.type === "message_start") {
         usage.input_tokens = event.message?.usage?.input_tokens ?? usage.input_tokens;

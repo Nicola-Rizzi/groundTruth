@@ -20,9 +20,9 @@ The solution is a live query layer (the MCP server) that gives agents exact valu
 │  ┌──────────────────┐             ┌──────────────────┐              │
 │  │   @acme/tokens   │             │  todolistvite    │              │
 │  │  (no React dep,  │             │  (demo app +     │              │
-│  │  own tokens.json │             │  smart-add/      │              │
-│  │  copy — unused,  │             │  breakdown, on   │              │
-│  │  see note below) │             │  Vercel)         │              │
+│  │  re-exports      │             │  smart-add/      │              │
+│  │  acme-ui's       │             │  breakdown, on   │              │
+│  │  tokens.json)    │             │  Vercel)         │              │
 │  └──────────────────┘             └──────────────────┘              │
 │  ┌──────────────────┐             ┌──────────────────┐              │
 │  │   @acme/ui       │◄────────────│  todolistvite    │              │
@@ -52,7 +52,7 @@ The solution is a live query layer (the MCP server) that gives agents exact valu
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**`@acme/tokens` note:** it exists, builds, and exports `allTokens`/`getToken`/`getTokensByCategory` — but nothing in the repo imports it, and its own copy of `tokens.json` has already drifted from `packages/acme-ui/src/tokens.json` (missing `color.brand.accentForeground`). It's the exact failure mode this project exists to prevent, happening to the project's own token data. Worth either wiring `@acme/ui` to consume it as the real source, or removing it — not a decision to make silently in a docs pass.
+**`@acme/tokens` note:** it exports `allTokens`/`getToken`/`getTokensByCategory` for non-React consumers (native apps, email templates). It used to ship its own copy of `tokens.json` that nothing imported and that had already drifted from `packages/acme-ui/src/tokens.json` (missing `color.brand.accentForeground`) — the exact failure mode this project exists to prevent, happening to its own token data. Fixed: `packages/tokens/src/index.ts` now imports `../../acme-ui/src/tokens.json` directly (a relative path reaching outside the package, which is fine for an internal import — only `package.json`'s `exports` map is restricted to the package's own directory), so there's one `tokens.json` on disk, not two.
 
 **`no-silent-catch` ESLint rule:** referenced in §9 as planned — it does not exist yet. Removed from this diagram; don't treat it as shipped.
 
@@ -437,7 +437,8 @@ Agent receives task: "Add a delete button to TodoListItem"
 ┌────────────────────────────────┐
 │ ESLint catches at write time:  │
 │  @acme/no-hardcoded-colors     │
-│  @acme/no-silent-catch         │
+│  (no-silent-catch: planned,    │
+│   not implemented — see §9)    │
 └────────────┬───────────────────┘
              │
              ▼
@@ -665,7 +666,7 @@ Without MCP:
 | PR review CI | `.github/workflows/pr-review.yml` | Posts AI review as PR comment |
 | Demo app | `apps/todolistvite/` | Consumes @acme/ui, proves the MCP workflow. Also hosts smart-add/breakdown — see `docs/smart-add-eval.md` |
 | Storybook | `apps/ui-docs/` | Interactive docs for every component variant |
-| Standalone tokens package | `packages/tokens/` | No-React consumer of tokens.json — currently unused and drifted from acme-ui's copy, see note in §1 |
+| Standalone tokens package | `packages/tokens/` | No-React consumer of tokens.json, re-exports acme-ui's copy directly — see note in §1 |
 | Vercel functions | `api/parse-todo.js`, `api/breakdown.js` | Serverless handlers for todolistvite, at repo root (not nested) — see `vercel.json` |
 | Vercel deploy config | `vercel.json` | Root Directory left unset so the build can still reach `packages/acme-ui`; buildCommand/outputDirectory scoped into `apps/todolistvite` |
 | Render deploy config | `render.yaml` | Blueprint for groundtruth-mcp's HTTP transport, `AUTH_TOKEN` set as an unsynced secret |

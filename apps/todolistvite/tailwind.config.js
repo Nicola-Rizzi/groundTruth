@@ -3,24 +3,16 @@ export default {
   content: [
     "./index.html",
     "./src/**/*.{ts,tsx}",
-    "../acme-ui/src/**/*.{ts,tsx}",
+    "../../packages/acme-ui/src/**/*.{ts,tsx}",
   ],
   theme: {
     extend: {
-      colors: {
-        brand: {
-          DEFAULT:     "#6D28D9",
-          hover:       "#5B21B6",
-          foreground:  "#FFFFFF",
-          accent:      "#D97706",
-          "accent-fg": "#FFFFFF",
-        },
-        surface: { DEFAULT: "#FAFAF9", card: "#FFFFFF", subtle: "#F5F5F4" },
-        text:    { DEFAULT: "#1C1917", muted: "#78716C" },
-        border:  { DEFAULT: "#D6D3D1", focus: "#6D28D9" },
-        feedback: { error: "#B91C1C", success: "#15803D" },
-      },
-      borderRadius: { sm: "6px", md: "10px", lg: "14px", full: "9999px" },
+      // No `colors`/`borderRadius` extend blocks here on purpose — see the
+      // matching comment in packages/acme-ui/tailwind.config.js. Every real
+      // component (including here) uses arbitrary-value syntax against the
+      // CSS variables generated from tokens.json, never a bare `bg-brand`
+      // class, so a second hardcoded copy of the same values would be an
+      // unchecked duplicate with nothing consuming it.
       boxShadow: {
         sm: "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)",
         md: "0 4px 8px rgba(0,0,0,0.10), 0 2px 4px rgba(0,0,0,0.06)",

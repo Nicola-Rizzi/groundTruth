@@ -87,20 +87,38 @@ export function describeMatches(value: string, matches: LookupMatch[]): string {
     return `No token found for "${value}" — it may not be a color, spacing, or radius value, or no tokens exist in that category.`;
   }
 
-  const [best, ...rest] = matches;
   const isColor = /^#|^rgb|^hsl/i.test(value.trim());
-  const exact = isColor ? best.distance < 0.02 : best.distance === 0; // ΔE < 0.02 ≈ imperceptible
-
   const fmt = (m: LookupMatch) =>
     isColor
       ? `${m.token.name} (${m.token.value}) — ΔE ≈ ${m.distance.toFixed(3)}`
       : `${m.token.name} (${m.token.value}) — Δ ${m.distance}px`;
 
-  if (exact) {
-    return `Exact match: ${fmt(best)}`;
+  if (isColor) {
+    const [best, ...rest] = matches;
+    if (best.distance < 0.02) return `Exact match: ${fmt(best)}`; // ΔE < 0.02 ≈ imperceptible
+    const lines = [`No exact match for "${value}".`, `Closest: ${fmt(best)}`];
+    if (rest[0]) lines.push(`Second closest: ${fmt(rest[0])}`);
+    return lines.join("\n");
   }
 
-  const lines = [`No exact match for "${value}".`, `Closest: ${fmt(best)}`];
-  if (rest[0]) lines.push(`Second closest: ${fmt(rest[0])}`);
+  // Scalar (spacing/radius): report the best match per category separately, not
+  // one flat "closest" pooled across both. A value like "6px" can be an exact
+  // radius token and nowhere near any spacing token (or vice versa) — collapsing
+  // them into one sorted list silently picks whichever category happens to have
+  // the closer number, even when that's not the category the caller meant.
+  const categories = [...new Set(matches.map(m => m.token.category))];
+  if (categories.length <= 1) {
+    const [best, ...rest] = matches;
+    if (best.distance === 0) return `Exact match: ${fmt(best)}`;
+    const lines = [`No exact match for "${value}".`, `Closest: ${fmt(best)}`];
+    if (rest[0]) lines.push(`Second closest: ${fmt(rest[0])}`);
+    return lines.join("\n");
+  }
+
+  const lines = [`"${value}" is ambiguous across token categories — closest match per category:`];
+  for (const category of categories) {
+    const best = matches.find(m => m.token.category === category)!; // matches is sorted by distance
+    lines.push(`  ${category}: ${best.distance === 0 ? "exact — " : ""}${fmt(best)}`);
+  }
   return lines.join("\n");
 }

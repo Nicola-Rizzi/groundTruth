@@ -179,3 +179,9 @@ Redux was removed from the project. No state management library is in use — th
 | Stateless — no session required | Call POST twice without any session header → both succeed independently |
 | Concurrent requests work | Send two tool calls simultaneously → both return correct results |
 | stdio still works | `npm start` still runs stdio transport with no changes |
+| AUTH_TOKEN unset — open by default | `npm run start:http` (no `AUTH_TOKEN`) → `/mcp` accepts requests with no `Authorization` header |
+| AUTH_TOKEN set — no header rejected | `AUTH_TOKEN=secret npm run start:http`, then POST `/mcp` with no `Authorization` header → 401 |
+| AUTH_TOKEN set — wrong token rejected | Same, with `Authorization: Bearer wrong` → 401 |
+| AUTH_TOKEN set — malformed header rejected | `Authorization: secret` (no `Bearer` scheme) → 401 |
+| AUTH_TOKEN set — correct token accepted | `Authorization: Bearer secret` → tool result, not 401 |
+| /health stays open regardless | `AUTH_TOKEN` set, `curl http://localhost:3100/health` with no header → 200 `{"status":"ok",...}` |

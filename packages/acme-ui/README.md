@@ -31,6 +31,7 @@ Add to `tsconfig.json`:
 | color.brand.primaryHover      | #5B21B6 | Hover state for primary brand color    |
 | color.brand.primaryForeground | #FFFFFF | Text on primary brand surfaces         |
 | color.brand.accent            | #D97706 | Warm amber accent                      |
+| color.brand.accentForeground  | #FFFFFF | Text on accent brand surfaces          |
 | color.text.default            | #1C1917 | Default body text — warm near-black    |
 | color.text.muted              | #78716C | Muted / secondary text                 |
 | color.surface.default         | #FAFAF9 | Page background — warm off-white       |
@@ -86,7 +87,7 @@ Add to `tsconfig.json`:
 ### Badge
 
 ```tsx
-import badge from "@acme/ui/badge";
+import { Badge } from "@acme/ui/badge";
 ```
 
 | Prop    | Type                                                             | Notes                       |
@@ -95,7 +96,7 @@ import badge from "@acme/ui/badge";
 
 **Example:**
 ```tsx
-<badge variant="default" />
+<Badge variant="default" />
 ```
 
 ---
@@ -103,7 +104,7 @@ import badge from "@acme/ui/badge";
 ### Button
 
 ```tsx
-import button from "@acme/ui/button";
+import { Button } from "@acme/ui/button";
 ```
 
 | Prop    | Type                                                       | Notes                       |
@@ -113,7 +114,7 @@ import button from "@acme/ui/button";
 
 **Example:**
 ```tsx
-<button variant="default" size="md" />
+<Button variant="default" size="md" />
 ```
 
 ---
@@ -121,7 +122,7 @@ import button from "@acme/ui/button";
 ### Card
 
 ```tsx
-import card from "@acme/ui/card";
+import { Card } from "@acme/ui/card";
 ```
 
 | Prop    | Type                                          | Notes                       |
@@ -131,7 +132,7 @@ import card from "@acme/ui/card";
 
 **Example:**
 ```tsx
-<card variant="default" padding="md" />
+<Card variant="default" padding="md" />
 ```
 
 ---
@@ -139,7 +140,7 @@ import card from "@acme/ui/card";
 ### Input
 
 ```tsx
-import input from "@acme/ui/input";
+import { Input } from "@acme/ui/input";
 ```
 
 | Prop    | Type                          | Notes                       |
@@ -149,5 +150,5 @@ import input from "@acme/ui/input";
 
 **Example:**
 ```tsx
-<input variant="default" size="md" />
+<Input variant="default" size="md" />
 ```

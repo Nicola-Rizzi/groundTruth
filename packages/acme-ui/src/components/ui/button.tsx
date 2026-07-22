@@ -10,8 +10,8 @@ export const buttonVariants = cva(
         default:     "bg-[rgb(var(--brand))] text-[rgb(var(--brand-foreground))] hover:bg-[rgb(var(--brand-hover))]",
         outline:     "border border-[rgb(var(--border))] bg-transparent text-[rgb(var(--text))] hover:bg-[rgb(var(--surface-subtle))]",
         ghost:       "text-[rgb(var(--text))] hover:bg-[rgb(var(--surface-subtle))]",
-        destructive: "bg-[rgb(var(--feedback-error))] text-white hover:bg-red-700",
-        accent:      "bg-[rgb(var(--brand-accent))] text-[rgb(var(--brand-accent-fg))] hover:bg-amber-600",
+        destructive: "bg-[rgb(var(--feedback-error))] text-white hover:brightness-90",
+        accent:      "bg-[rgb(var(--brand-accent))] text-[rgb(var(--brand-accent-fg))] hover:brightness-90",
       },
       size: {
         sm:   "h-8  rounded-[var(--radius-sm)] px-3 text-sm",

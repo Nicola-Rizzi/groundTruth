@@ -41,23 +41,35 @@ async function main() {
 
   const client = new Anthropic();
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    system: [
-      {
-        type: "text",
-        text: SYSTEM_PROMPT,
-        cache_control: { type: "ephemeral" },
-      },
-    ],
-    messages: [
-      {
-        role: "user",
-        content: `Review this diff:\n\n\`\`\`diff\n${diff}\n\`\`\``,
-      },
-    ],
-  });
+  let response;
+  try {
+    response = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1024,
+      system: [
+        {
+          type: "text",
+          text: SYSTEM_PROMPT,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      messages: [
+        {
+          role: "user",
+          content: `Review this diff:\n\n\`\`\`diff\n${diff}\n\`\`\``,
+        },
+      ],
+    });
+  } catch (err) {
+    // Auth/permission errors (missing or invalid ANTHROPIC_API_KEY) are a real
+    // misconfiguration — worth a hard CI failure so someone notices and fixes
+    // the secret. Everything else (rate limit, overload, network blip, an
+    // Anthropic-side 5xx) is transient: failing this step shouldn't fail the
+    // whole PR-review job, it should just post that the review didn't run.
+    if (err.status === 401 || err.status === 403) throw err;
+    console.log(`Automated review unavailable (${err.status ?? "network error"}): ${err.message}`);
+    return;
+  }
 
   const text = response.content.find(b => b.type === "text")?.text ?? "";
   console.log(text);

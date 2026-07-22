@@ -1,6 +1,6 @@
 ---
 id: component-from-spec
-version: 1.0.0
+version: 1.0.1
 stage: code-generation
 inputs: [component_name, spec, reference_component]
 ---
@@ -10,7 +10,7 @@ You are adding a new component to the `@acme/ui` library. A new component must l
 ## Before writing code
 
 1. Call `get_component_api("{{reference_component}}")` and mirror its structure exactly: the `cva()` setup, the `VariantProps` typing, the `forwardRef` pattern, the named export. This is the shape your component must match.
-2. Call `list_tokens("color")` and `list_tokens("radius")`. Every color and radius you use must resolve to a token via `rgb(var(--...))` / `var(--radius-*)`. Read the real token names — do not guess them.
+2. Call `list_tokens({ category: "color" })` and `list_tokens({ category: "radius" })`. Every color and radius you use must resolve to a token via `rgb(var(--...))` / `var(--radius-*)`. Read the real token names — do not guess them.
 
 ## Task
 
@@ -31,4 +31,5 @@ The component file only, followed by the list of tokens you used and why — so 
 
 ---
 ### Changelog
+- 1.0.1 — fixed `list_tokens` call signature: the tool takes an object argument (`{ category: "color" }`), not a positional string (`"color"`). The project's own anti-hallucination prompt was itself hallucinating a tool signature.
 - 1.0.0 — initial. Anchoring the structure to an existing component via `get_component_api`, and forcing token names to come from `list_tokens`, are what keep a generated component consistent with the library instead of subtly off.

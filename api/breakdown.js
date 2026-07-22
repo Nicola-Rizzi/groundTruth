@@ -42,17 +42,38 @@ export default async function handler(req, res) {
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   });
-  const frame = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+  // If the client disconnects mid-stream, abort the upstream Anthropic call
+  // and stop writing to the dead socket — a write to a closed response is
+  // itself a source of an uncaught error, including from inside the catch
+  // block's own error frame below.
+  const abortController = new AbortController();
+  let clientGone = false;
+  req.on("close", () => {
+    clientGone = true;
+    abortController.abort();
+  });
+  const frame = (obj) => {
+    if (clientGone) return;
+    try {
+      res.write(`data: ${JSON.stringify(obj)}\n\n`);
+    } catch {
+      clientGone = true;
+    }
+  };
   try {
-    for await (const text of streamText(buildBreakdownRequest(input))) {
+    for await (const text of streamText(buildBreakdownRequest(input), { signal: abortController.signal })) {
       frame({ type: "delta", text });
     }
     frame({ type: "done" });
   } catch (err) {
     // Mid-stream failures can't change the HTTP status (headers already sent),
-    // so the error is delivered as a stream event the client handles.
-    console.error("stream error:", err);
-    frame({ type: "error", message: "Stream failed." });
+    // so the error is delivered as a stream event the client handles — unless
+    // the client is the reason the stream stopped, in which case there's no
+    // one to deliver it to.
+    if (!clientGone) {
+      console.error("stream error:", err);
+      frame({ type: "error", message: "Stream failed." });
+    }
   }
-  res.end();
+  if (!clientGone) res.end();
 }

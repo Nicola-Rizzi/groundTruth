@@ -1,4 +1,8 @@
-import tokens from "./tokens.json" with { type: "json" };
+// Reads acme-ui's tokens.json directly rather than keeping a second copy here
+// — a duplicate would drift the moment one side changed and the other didn't
+// (which is exactly what had happened before this was wired up for real: this
+// package's own former copy was already missing a token acme-ui's had).
+import tokens from "../../acme-ui/src/tokens.json" with { type: "json" };
 
 export type TokenCategory = "color" | "spacing" | "typography" | "radius" | "shadow";
 

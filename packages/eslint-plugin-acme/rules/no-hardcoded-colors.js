@@ -39,6 +39,18 @@ export default {
       JSXExpressionContainer(node) {
         walkNode(node.expression, checkLiteral);
       },
+      // className="bg-[#B91C1C]" — a bare string attribute, not wrapped in an
+      // expression container. This is the Tailwind arbitrary-value form every
+      // component in this repo actually uses (bg-[rgb(var(--brand))]), so it's
+      // also the most likely way a hex literal slips in undetected. Scoped to
+      // className/class specifically — checking every JSX attribute would also
+      // flag unrelated hex-shaped values, like a `href="#a1b2c3"` fragment.
+      JSXAttribute(node) {
+        const attrName = node.name && node.name.name;
+        if ((attrName === "className" || attrName === "class") && node.value && node.value.type === "Literal") {
+          checkLiteral(node.value);
+        }
+      },
       // Template literals: `color: #fff`
       TemplateLiteral(node) {
         for (const quasi of node.quasis) {
@@ -69,5 +81,8 @@ function walkNode(node, visitor) {
   } else if (node.type === "ConditionalExpression") {
     walkNode(node.consequent, visitor);
     walkNode(node.alternate, visitor);
+  } else if (node.type === "LogicalExpression") {
+    walkNode(node.left, visitor);
+    walkNode(node.right, visitor);
   }
 }

@@ -26,7 +26,6 @@ export interface ComponentProp {
 export interface Component {
   name: string;
   importPath: string;
-  description: string;
   props: ComponentProp[];
   example: string;
 }

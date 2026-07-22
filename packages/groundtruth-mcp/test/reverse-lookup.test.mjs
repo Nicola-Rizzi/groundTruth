@@ -11,6 +11,7 @@ const tokens = [
   { name: "space.1", value: "4px", category: "spacing", description: "" },
   { name: "space.4", value: "16px", category: "spacing", description: "" },
   { name: "space.6", value: "24px", category: "spacing", description: "" },
+  { name: "radius.sm", value: "6px", category: "radius", description: "" },
 ];
 
 test("exact color match resolves to the right token", () => {
@@ -84,4 +85,22 @@ test("describeMatches formats a near-miss with ΔE and a fallback candidate", ()
 test("describeMatches on no matches gives an actionable message, not empty text", () => {
   const out = describeMatches("not-a-value", []);
   assert.match(out, /No token found/);
+});
+
+test("scalar lookup does not silently conflate spacing and radius", () => {
+  // "6px" is an exact radius match and NOT a spacing token — describeMatches
+  // must not report it as a flat "closest" across both pooled categories,
+  // since that would silently pick radius.sm even when the caller meant spacing.
+  const matches = findTokenForValue("6px", tokens);
+  const out = describeMatches("6px", matches);
+  assert.match(out, /ambiguous across token categories/);
+  assert.match(out, /radius: exact — radius\.sm/);
+  assert.match(out, /spacing: space\.1/); // closest spacing token (4px), not exact
+});
+
+test("scalar lookup within a single category still reports a plain exact match", () => {
+  const spacingOnly = tokens.filter(t => t.category !== "radius");
+  const matches = findTokenForValue("16px", spacingOnly);
+  const out = describeMatches("16px", matches);
+  assert.match(out, /^Exact match: space\.4/);
 });
