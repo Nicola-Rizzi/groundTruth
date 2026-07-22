@@ -571,6 +571,8 @@ git diff main | node scripts/review-pr.js
 
 **Prompt caching:** The `SYSTEM_PROMPT` is marked `cache_control: { type: "ephemeral" }`. On repeated calls (e.g., two PRs in the same hour), Anthropic serves the cached prompt prefix, cutting cost and latency.
 
+**Fail-soft vs. fail-hard:** the `messages.create()` call is wrapped separately from the rest of `main()`. An auth/permission error (401/403 — a misconfigured `ANTHROPIC_API_KEY` secret) re-throws and hard-fails the CI job, since that's a real misconfiguration worth surfacing loudly. Any other error (rate limit, overload, network blip) prints `"Automated review unavailable: ..."` and exits 0 — a transient API hiccup shouldn't turn into a hard-failing check on an unrelated PR.
+
 ---
 
 ## 9. ESLint Plugin Architecture

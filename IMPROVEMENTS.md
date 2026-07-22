@@ -130,8 +130,9 @@ Redux was removed from the project. No state management library is in use — th
 | Fetches on mount | Open the app → todos load from JSONPlaceholder |
 | Response parsed correctly | Todos display `title` field (not `name`) |
 | Add todo | Submit form → POST called, new item appears at top |
+| Failed add surfaces an error | Mock a non-2xx POST response → no item added, `error` state set (not a silently broken item) |
 | Remove todo | Click Remove → item gone immediately, no 5s delay |
-| Toggle complete | Click Complete/Undo → `completed` flips, badge updates |
+| Toggle complete | Click Complete/Undo → `completed` flips locally, badge updates, and a real PATCH `/todos/:id` fires with `{ completed }` |
 | Empty form validation | Submit empty form → error shown in `rgb(var(--feedback-error))` color |
 
 ### Storybook
@@ -175,8 +176,10 @@ Redux was removed from the project. No state management library is in use — th
 | Flags 3-char hex | `style={{ color: "#fff" }}` → flagged |
 | Flags 8-char hex with alpha | `style={{ color: "#B91C1CFF" }}` → flagged |
 | Flags hex in template literal | `` const s = `color: #B91C1C` `` → flagged |
+| Flags hex in a bare className attribute | `className="bg-[#B91C1C]"` (Tailwind arbitrary-value form, not wrapped in an expression container) → flagged |
 | Does not flag CSS variable | `style={{ color: "rgb(var(--feedback-error))" }}` → no error |
 | Does not flag non-color strings | `className="bg-red-700"` → no error (Tailwind class, not a hex literal) |
+| Does not flag unrelated attributes | `href="#a1b2c3"` (anchor fragment, hex-shaped but not a color) → no error, since only `className`/`class` are checked |
 | Error message names the fix | Message says: "Run `list_tokens` in the MCP to find the right token." |
 | Clean codebase has zero violations | `node node_modules/.bin/eslint apps/todolistvite/src` → no output |
 
