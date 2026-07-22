@@ -2,6 +2,8 @@
 
 This document describes how every part of the system fits together: packages, data flows, MCP protocol internals, CI pipelines, and the agent workflow.
 
+**Scope note:** this document covers the build-time system (MCP server, token pipeline, CI). The runtime LLM features in `apps/todolistvite` (smart-add, breakdown) have their own write-ups: [`docs/smart-add-eval.md`](docs/smart-add-eval.md) and [`docs/production-notes.md`](docs/production-notes.md). Deploy infrastructure (Vercel, Render) is covered in the README's ["Live demo"](README.md#live-demo) section.
+
 ---
 
 ## 1. System Overview
@@ -16,6 +18,13 @@ The solution is a live query layer (the MCP server) that gives agents exact valu
 │                                                                     │
 │  packages/                        apps/                             │
 │  ┌──────────────────┐             ┌──────────────────┐              │
+│  │   @acme/tokens   │             │  todolistvite    │              │
+│  │  (no React dep,  │             │  (demo app +     │              │
+│  │  own tokens.json │             │  smart-add/      │              │
+│  │  copy — unused,  │             │  breakdown, on   │              │
+│  │  see note below) │             │  Vercel)         │              │
+│  └──────────────────┘             └──────────────────┘              │
+│  ┌──────────────────┐             ┌──────────────────┐              │
 │  │   @acme/ui       │◄────────────│  todolistvite    │              │
 │  │                  │  Vite alias │  (demo app)      │              │
 │  │  Button, Input   │             └──────────────────┘              │
@@ -29,10 +38,11 @@ The solution is a live query layer (the MCP server) that gives agents exact valu
 │  │  groundtruth-mcp │             │ eslint-plugin-   │              │
 │  │                  │             │ acme             │              │
 │  │  MCP server      │             │                  │              │
-│  │  (tools)         │             │ no-hardcoded-    │              │
-│  └────────┬─────────┘             │ colors           │              │
-│           │ serves                │ no-silent-catch  │              │
-│           ▼                       └──────────────────┘              │
+│  │  (tools, stdio + │             │ no-hardcoded-    │              │
+│  │  HTTP, on Render)│             │ colors           │              │
+│  └────────┬─────────┘             └──────────────────┘              │
+│           │ serves                                                   │
+│           ▼                                                          │
 │  ┌──────────────────┐                                               │
 │  │   AI Agent       │  scripts/                                     │
 │  │  (Claude Code,   │  ┌─────────────────────────────────────┐     │
@@ -41,6 +51,10 @@ The solution is a live query layer (the MCP server) that gives agents exact valu
 │                         └─────────────────────────────────────┘     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+**`@acme/tokens` note:** it exists, builds, and exports `allTokens`/`getToken`/`getTokensByCategory` — but nothing in the repo imports it, and its own copy of `tokens.json` has already drifted from `packages/acme-ui/src/tokens.json` (missing `color.brand.accentForeground`). It's the exact failure mode this project exists to prevent, happening to the project's own token data. Worth either wiring `@acme/ui` to consume it as the real source, or removing it — not a decision to make silently in a docs pass.
+
+**`no-silent-catch` ESLint rule:** referenced in §9 as planned — it does not exist yet. Removed from this diagram; don't treat it as shipped.
 
 ---
 
@@ -116,42 +130,46 @@ Agent (client)                          MCP Server
 
 ### 3.2 Transport layer
 
-The server uses HTTP exclusively via `StreamableHTTPServerTransport`.
+The server supports **two** transports, both built from the exact same `createMcpServer()` — the tool set is defined once and cannot drift between them.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     createMcpServer()                        │
 │                    (src/server.ts)                           │
 │                                                             │
-│   list_tokens    get_token    list_components               │
-│   get_component_api          list_endpoints                 │
-│   get_endpoint                                              │
-└───────────────────────┬─────────────────────────────────────┘
-                        │
-                        ▼
-             ┌─────────────────────┐
-             │ StreamableHTTP      │
-             │ ServerTransport     │
-             │ (src/http.ts)       │
-             │                     │
-             │ POST /mcp           │
-             │ stateless, per-req  │
-             │ transport instance  │
-             │                     │
-             │ npm start           │
-             │ → localhost:3100    │
-             │                     │
-             │ .mcp.json:          │
-             │ { "url": "http://   │
-             │  localhost:3100/mcp"│
-             └─────────────────────┘
+│   list_tokens    get_token    find_token_for_value           │
+│   list_components   get_component_api                       │
+│   list_endpoints    get_endpoint                             │
+└───────────┬───────────────────────────┬─────────────────────┘
+            │                           │
+            ▼                           ▼
+ ┌─────────────────────┐    ┌───────────────────────────┐
+ │ StdioServerTransport│    │ StreamableHTTPServerTransport│
+ │ (src/index.ts)      │    │ (src/http.ts)              │
+ │                     │    │                             │
+ │ zero-config default │    │ POST /mcp, stateless — a    │
+ │ — the client spawns │    │ fresh transport instance    │
+ │ the process         │    │ per request                 │
+ │                     │    │                             │
+ │ npm start           │    │ npm run start:http          │
+ │ (.mcp.json:         │    │ → localhost:3100            │
+ │  command + args)    │    │ (or the public Render deploy)│
+ │                     │    │                             │
+ │                     │    │ AUTH_TOKEN opt-in: unset =   │
+ │                     │    │ open (local default);        │
+ │                     │    │ set = Bearer token required   │
+ │                     │    │ on /mcp (not /health)         │
+ └─────────────────────┘    └───────────────────────────┘
 ```
 
-**HTTP transport design:** Stateless by choice — no sessions, no in-memory state. A new `StreamableHTTPServerTransport` instance is created for each request. This is safe because all state is in the files the server reads; there is nothing to lose between requests.
+**stdio is the default** — solo use, zero config, the client owns the process lifecycle. **HTTP is for the shared-server case** — one long-running process (locally, or the public `groundtruth-mcp.onrender.com` deploy) that every client points at instead of spawning its own. Both are stateless in the sense that matters: no cache, no session state — every tool call re-reads the source files, so there's nothing to invalidate and nothing to lose between requests or between transports.
+
+**Auth (HTTP only):** opt-in via `AUTH_TOKEN`. Unset, any request is accepted — the pre-auth default, fine for localhost. Set, and `isAuthorized()` requires `Authorization: Bearer <token>` on `/mcp`, checked with `crypto.timingSafeEqual` so a near-miss token can't be brute-forced via response timing. `/health` stays open regardless, for load balancers and uptime monitors.
 
 **Before using the MCP tools, start the server:**
 ```bash
-npm start   # in packages/groundtruth-mcp
+npm start            # stdio
+npm run start:http   # HTTP, http://localhost:3100/mcp
 ```
 
 ### 3.3 Internal call flow — HTTP
@@ -167,7 +185,11 @@ Agent (MCP client)               HTTP Server (dist/http.js)
                                    └─ new StreamableHTTPServerTransport()
                                    └─ server.connect(transport)
 
-POST /mcp ── JSON-RPC request ──► transport.handleRequest(req, res)
+POST /mcp ── JSON-RPC request ──► isAuthorized(req)?
+                                        └─ AUTH_TOKEN unset → true (open)
+                                        └─ AUTH_TOKEN set → check Bearer header
+                                        └─ fails → 401, transport never touched
+                                   transport.handleRequest(req, res)
                                         └─ McpServer routes to handler
                                         └─ handler calls loadComponents()
                                               └─ readFileSync(SHARED_UI_PATH)
@@ -526,21 +548,20 @@ git diff main | node scripts/review-pr.js
   })
          │
          ▼
-  SYSTEM_PROMPT checks:
-  ┌──────────────────────────────────┐
-  │ 1. No hardcoded file paths       │
-  │ 2. Loaders in server.ts, not     │
-  │    inline in tool handlers       │
-  │ 3. design-system.ts ↔ loaders.ts │
-  │    must stay in sync             │
-  │ 4. No console.log in MCP src     │
-  │ 5. MCP src change → dist rebuilt │
-  │ 6. No hardcoded hex colors       │
-  │ 7. No silent catch blocks        │
-  │ 8. No dangerouslySetInnerHTML    │
-  │ 9. No new `any` types            │
-  │ 10. No hardcoded spacing/font px │
-  └──────────────────────────────────┘
+  SYSTEM_PROMPT checks (the actual 5 — see scripts/review-pr.js):
+  ┌──────────────────────────────────────┐
+  │ 1. No hardcoded file paths in src/,  │
+  │    must come from env vars — but     │
+  │    NOT test code seeding env vars    │
+  │    for a spawned subprocess          │
+  │ 2. Loaders in loaders.ts, called     │
+  │    from server.ts — never inline     │
+  │    readFileSync in a tool handler    │
+  │ 3. design-system.ts ↔ loaders.ts     │
+  │    must stay in sync                 │
+  │ 4. No console.log in MCP src         │
+  │ 5. No hardcoded hex colors           │
+  └──────────────────────────────────────┘
          │
          ▼
   print findings to stdout
@@ -642,5 +663,10 @@ Without MCP:
 | PR review | `scripts/review-pr.js` | Claude API review on every diff |
 | Token drift CI | `.github/workflows/token-drift.yml` | Fails if index.css is stale |
 | PR review CI | `.github/workflows/pr-review.yml` | Posts AI review as PR comment |
-| Demo app | `apps/todolistvite/` | Consumes @acme/ui, proves the MCP workflow |
+| Demo app | `apps/todolistvite/` | Consumes @acme/ui, proves the MCP workflow. Also hosts smart-add/breakdown — see `docs/smart-add-eval.md` |
 | Storybook | `apps/ui-docs/` | Interactive docs for every component variant |
+| Standalone tokens package | `packages/tokens/` | No-React consumer of tokens.json — currently unused and drifted from acme-ui's copy, see note in §1 |
+| Vercel functions | `api/parse-todo.js`, `api/breakdown.js` | Serverless handlers for todolistvite, at repo root (not nested) — see `vercel.json` |
+| Vercel deploy config | `vercel.json` | Root Directory left unset so the build can still reach `packages/acme-ui`; buildCommand/outputDirectory scoped into `apps/todolistvite` |
+| Render deploy config | `render.yaml` | Blueprint for groundtruth-mcp's HTTP transport, `AUTH_TOKEN` set as an unsynced secret |
+| Demo recording script | `scripts/demo-storyboard.sh` | Scripted before/after terminal recording for the project GIF |
