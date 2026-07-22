@@ -20,6 +20,8 @@ packages/
   acme-ui/             @acme/ui              — React components (Button, Input, Card, Badge)
   groundtruth-mcp/                           — MCP server: reads tokens + components + API contracts
   eslint-plugin-acme/  @acme/eslint-plugin   — ESLint rule: no-hardcoded-colors
+  auditor-agent/       @acme/auditor-agent   — LangGraph agent: finds hardcoded hex, resolves via MCP,
+                                                applies fixes only with human-in-the-loop approval
 apps/
   todolistvite/                              — consumer demo app, wired to @acme/ui via Vite alias
                                                 (deployed on Vercel — see root vercel.json)
