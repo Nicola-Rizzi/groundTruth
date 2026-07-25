@@ -9,13 +9,15 @@
   ],
   "scripts": {
     "generate-tokens": "npm run generate-tokens --workspace=packages/acme-ui",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "dev": "npm run build --workspace=packages/groundtruth-mcp && concurrently -n api,web -c yellow,cyan \"npm run dev:api --workspace=apps/todolistvite\" \"npm run dev --workspace=apps/todolistvite\""
   },
   "overrides": {
     "storybook": "^10.4.1"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
+    "concurrently": "^9.1.0",
     "eslint": "^10.4.1",
     "storybook": "^10.4.1"
   }
